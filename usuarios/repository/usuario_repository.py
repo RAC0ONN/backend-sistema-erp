@@ -15,6 +15,20 @@ class UsuarioRepository:
             return None
 
     @staticmethod
+    def obtener_por_correo(correo: str):
+        try:
+            return Usuario.objects.select_related('rol', 'tipo_documento', 'estado_usuario').get(correo__iexact=correo)
+        except ObjectDoesNotExist:
+            return None
+
+    @staticmethod
+    def obtener_por_nombre_usuario(nombre_usuario: str):
+        try:
+            return Usuario.objects.select_related('rol', 'tipo_documento', 'estado_usuario').get(nombre_usuario=nombre_usuario)
+        except ObjectDoesNotExist:
+            return None
+
+    @staticmethod
     def guardar(usuario: Usuario):
         usuario.save()
         return usuario

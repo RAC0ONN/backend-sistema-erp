@@ -2,7 +2,8 @@ from .usuario_controller import (
     listar_usuarios_view,
     crear_usuario_view,
     actualizar_usuario_view,
-    eliminar_usuario_view
+    eliminar_usuario_view,
+    login_view
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "crear_usuario_view",
     "actualizar_usuario_view",
     "eliminar_usuario_view",
+    "login_view",
 ]

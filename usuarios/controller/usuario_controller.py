@@ -3,7 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 
 from usuarios.service import UsuarioService
-from usuarios.dto import UsuarioCrearDTO, UsuarioActualizarDTO
+from usuarios.dto import UsuarioCrearDTO, UsuarioActualizarDTO, LoginDTO
 
 
 @csrf_exempt
@@ -114,4 +114,33 @@ def eliminar_usuario_view(request, id_usuario):
             traceback.print_exc()
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
             
+    return JsonResponse({"status": "error", "message": "No permitido"}, status=405)
+
+
+@csrf_exempt
+def login_view(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            dto = LoginDTO(
+                usuario=data.get('correo') or data.get('nombre_usuario'),
+                contrasenia=data.get('contrasenia')
+            )
+            sesion = UsuarioService.iniciar_sesion(dto)
+            if sesion is None:
+                return JsonResponse({"status": "error", "message": "Correo o contraseña incorrectos"}, status=401)
+
+            return JsonResponse({
+                "status": "success",
+                "message": "Bienvenido",
+                "data": sesion
+            }, status=200)
+
+        except PermissionError as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=403)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({"status": "error", "message": str(e)}, status=400)
+
     return JsonResponse({"status": "error", "message": "No permitido"}, status=405)

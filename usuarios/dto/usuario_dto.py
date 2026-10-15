@@ -47,3 +47,9 @@ class UsuarioRespuestaDTO:
     nombre_tipo_documento: str
     id_estado_usuario: int
     nombre_estado_usuario: str
+
+
+@dataclass
+class LoginDTO:
+    usuario: str
+    contrasenia: str

@@ -10,3 +10,15 @@
 5. `python manage.py runserver`
 
 El front (Angular) corre en `http://localhost:4200` y ya tiene permiso (CORS) para llamar al back.
+
+## Login
+`POST /api/usuarios/login/`
+
+Se puede entrar con el correo o con el nombre de usuario:
+```json
+{ "correo": "jperez@empresa.com", "contrasenia": "Prueba123" }
+```
+Respuestas:
+- 200: correcto, devuelve `data` con id_usuario, nombre, rol, estado y un `token`
+- 401: correo o contraseña incorrectos
+- 403: el usuario está suspendido o retirado
