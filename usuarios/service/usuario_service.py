@@ -1,3 +1,5 @@
+from django.contrib.auth.hashers import make_password
+
 from usuarios.repository import UsuarioRepository
 from usuarios.entity import Usuario, Rol, TipoDocumento, EstadoUsuario
 from usuarios.dto import UsuarioRespuestaDTO
@@ -39,7 +41,7 @@ class UsuarioService:
             segundo_apellido=dto_crear.segundo_apellido,
             correo=dto_crear.correo,
             numero_documento=dto_crear.numero_documento,
-            contrasenia=dto_crear.contrasenia,  
+            contrasenia=make_password(dto_crear.contrasenia),  # la contraseña se guarda cifrada, no en texto plano
             rol_id=dto_crear.id_rol,
             tipo_documento_id=dto_crear.id_tipo_documento,
             estado_usuario_id=dto_crear.id_estado_usuario
