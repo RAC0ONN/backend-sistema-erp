@@ -21,8 +21,11 @@ def listar_usuarios_view(request):
                     "segundo_apellido": u.segundo_apellido,
                     "correo": u.correo,
                     "numero_documento": u.numero_documento,
+                    "id_rol": u.id_rol,
                     "rol": u.nombre_rol,
+                    "id_tipo_documento": u.id_tipo_documento,
                     "tipo_documento": u.nombre_tipo_documento,
+                    "id_estado_usuario": u.id_estado_usuario,
                     "estado": u.nombre_estado_usuario
                 }
                 for u in usuarios
