@@ -105,3 +105,37 @@ CREATE TABLE Reporte (
 INSERT INTO Rol (nombre) VALUES ('Administrador'), ('Vendedor'), ('Auxiliar administrativo');
 INSERT INTO Tipo_Documento (nombre) VALUES ('Cédula de Ciudadanía'), ('Cédula de extranjería');
 INSERT INTO Estado_Usuario (nombre) VALUES ('Contratado'), ('Suspendido'), ('En vacaciones'), ('Retirado');
+
+
+ALTER TABLE registro_bitacora ALTER COLUMN id_usuario_afectado DROP NOT NULL;
+ALTER TABLE registro_bitacora ALTER COLUMN id_usuario_responsable DROP NOT NULL;
+
+
+select * from registro_bitacora;
+select * from usuario;
+
+ALTER TABLE registro_bitacora ALTER COLUMN id_usuario_afectado DROP NOT NULL;
+ALTER TABLE registro_bitacora ALTER COLUMN id_usuario_responsable DROP NOT NULL;
+
+CREATE OR REPLACE FUNCTION proteger_documentos_usuario()
+RETURNS TRIGGER AS $$
+BEGIN
+
+    IF NEW.id_tipo_documento IS DISTINCT FROM OLD.id_tipo_documento THEN
+        RAISE EXCEPTION 'No está permitido modificar el tipo de documento ';
+    END IF;
+
+    IF NEW.numero_documento IS DISTINCT FROM OLD.numero_documento THEN
+        RAISE EXCEPTION 'No está permitido modificar el número de documento ';
+    END IF;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trg_proteger_documentos_usuario ON Usuario;
+
+CREATE TRIGGER trg_proteger_documentos_usuario
+BEFORE UPDATE ON Usuario
+FOR EACH ROW
+EXECUTE FUNCTION proteger_documentos_usuario();

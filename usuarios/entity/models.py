@@ -3,4 +3,5 @@ from .entity import (
     TipoDocumento,
     EstadoUsuario,
     Usuario,
+    Registro_Bitacora,
 )

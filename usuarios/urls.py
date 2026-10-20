@@ -4,7 +4,8 @@ from usuarios.controller import (
     crear_usuario_view, 
     actualizar_usuario_view, 
     eliminar_usuario_view,
-    login_view
+    login_view,
+    listar_bitacora_view
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path('usuarios/actualizar/<int:id_usuario>/', actualizar_usuario_view, name='actualizar_usuario'),
     path('usuarios/eliminar/<int:id_usuario>/', eliminar_usuario_view, name='eliminar_usuario'),
     path('usuarios/login/', login_view, name='login'),
+    path('auditoria/', listar_bitacora_view, name='listar_bitacora'),
 ]

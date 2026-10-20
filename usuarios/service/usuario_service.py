@@ -4,13 +4,14 @@ from django.core import signing
 from usuarios.repository import UsuarioRepository
 from usuarios.entity import Usuario, Rol, TipoDocumento, EstadoUsuario
 from usuarios.dto import UsuarioRespuestaDTO
+from usuarios.service.registro_bitacora_service import BitacoraService
 
-# estados que no pueden entrar al sistema
+
 ESTADOS_SIN_ACCESO = ('Suspendido', 'Retirado')
 
 
 def limpiar(texto):
-    # quita espacios y tabulaciones de más al inicio y al final
+   
     return texto.strip() if isinstance(texto, str) else texto
 
 
@@ -42,7 +43,6 @@ class UsuarioService:
 
     @staticmethod
     def crear_usuario(dto_crear):
-        
         usuario = Usuario(
             nombre_usuario=limpiar(dto_crear.nombre_usuario),
             primer_nombre=limpiar(dto_crear.primer_nombre),
@@ -51,12 +51,21 @@ class UsuarioService:
             segundo_apellido=limpiar(dto_crear.segundo_apellido),
             correo=limpiar(dto_crear.correo),
             numero_documento=limpiar(dto_crear.numero_documento),
-            contrasenia=make_password(dto_crear.contrasenia),  # la contraseña se guarda cifrada, no en texto plano
+            contrasenia=make_password(dto_crear.contrasenia),  
             rol_id=dto_crear.id_rol,
             tipo_documento_id=dto_crear.id_tipo_documento,
             estado_usuario_id=dto_crear.id_estado_usuario
         )
         usuario_guardado = UsuarioRepository.guardar(usuario)
+
+       
+        BitacoraService.registrar_evento(
+            id_usuario_afectado=usuario_guardado.id_usuario,
+            id_usuario_responsable=usuario_guardado.id_usuario, 
+            accion="CREAR_USUARIO",
+            cambio_realizado=f"Se creó el usuario '{usuario_guardado.nombre_usuario}' con correo '{usuario_guardado.correo}'."
+        )
+
         return usuario_guardado.id_usuario
     
     @staticmethod
@@ -64,6 +73,9 @@ class UsuarioService:
         usuario = UsuarioRepository.obtener_por_id(id_usuario)
         if not usuario:
             raise ValueError("El usuario no existe")
+        
+        estado_anterior = usuario.estado_usuario.id_estado_usuario
+
         usuario.nombre_usuario = limpiar(dto_actualizar.nombre_usuario)
         usuario.primer_nombre = limpiar(dto_actualizar.primer_nombre)
         usuario.segundo_nombre = limpiar(dto_actualizar.segundo_nombre)
@@ -74,19 +86,50 @@ class UsuarioService:
         usuario.rol_id = dto_actualizar.id_rol
         usuario.tipo_documento_id = dto_actualizar.id_tipo_documento
         usuario.estado_usuario_id = dto_actualizar.id_estado_usuario
+        
         usuario_actualizado = UsuarioRepository.actualizar(usuario)
+
+       
+        accion_bitacora = "ACTUALIZAR_USUARIO"
+        detalle_cambio = f"Se actualizaron los datos del usuario '{usuario_actualizado.nombre_usuario}'."
+        if estado_anterior != usuario_actualizado.estado_usuario.id_estado_usuario:
+            accion_bitacora = "CAMBIO_ESTADO_USUARIO"
+            detalle_cambio = f"Se cambió el estado del usuario '{usuario_actualizado.nombre_usuario}'."
+
+        BitacoraService.registrar_evento(
+            id_usuario_afectado=usuario_actualizado.id_usuario,
+            id_usuario_responsable=usuario_actualizado.id_usuario, 
+            accion=accion_bitacora,
+            cambio_realizado=detalle_cambio
+        )
+
         return usuario_actualizado.id_usuario
 
     @staticmethod
-    def eliminar_usuario(id_usuario: int):
+    def eliminar_usuario(id_usuario: int, id_responsable: int = None):
         usuario = UsuarioRepository.obtener_por_id(id_usuario)
         if not usuario:
             raise ValueError("El usuario no existe")
-        return UsuarioRepository.eliminar(usuario)
+        
+       
+        responsable_final = id_responsable if id_responsable else id_usuario
+        nombre_eliminado = usuario.nombre_usuario
+
+        BitacoraService.registrar_evento(
+            id_usuario_afectado=id_usuario,
+            id_usuario_responsable=responsable_final,
+            accion="ELIMINAR_USUARIO",
+            cambio_realizado=f"Se elimino el usuario '{nombre_eliminado}' (ID: {id_usuario})."
+        )
+
+      
+        resultado = UsuarioRepository.eliminar(usuario)
+
+        return resultado
 
     @staticmethod
     def iniciar_sesion(dto_login):
-        # se puede entrar con el correo o con el nombre de usuario
+        
         dato = limpiar(dto_login.usuario) or ''
         usuario = UsuarioRepository.obtener_por_correo(dato) or UsuarioRepository.obtener_por_nombre_usuario(dato)
         if not usuario or not dto_login.contrasenia:
@@ -96,7 +139,7 @@ class UsuarioService:
             identify_hasher(usuario.contrasenia)
             es_valida = check_password(dto_login.contrasenia, usuario.contrasenia)
         except ValueError:
-            # usuarios creados antes del cifrado: se compara normal y se cifra de una vez
+          
             es_valida = usuario.contrasenia == dto_login.contrasenia
             if es_valida:
                 usuario.contrasenia = make_password(dto_login.contrasenia)

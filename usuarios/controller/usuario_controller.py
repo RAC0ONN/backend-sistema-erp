@@ -106,7 +106,12 @@ def actualizar_usuario_view(request, id_usuario):
 def eliminar_usuario_view(request, id_usuario):
     if request.method == 'DELETE':
         try:
-            UsuarioService.eliminar_usuario(id_usuario)
+          
+            id_responsable = request.META.get('HTTP_X_USUARIO_RESPONSABLE')
+            
+            id_resp_int = int(id_responsable) if id_responsable else None
+            
+            UsuarioService.eliminar_usuario(id_usuario, id_resp_int)
             return JsonResponse({
                 "status": "success", 
                 "message": "Exito"
@@ -118,8 +123,6 @@ def eliminar_usuario_view(request, id_usuario):
             return JsonResponse({"status": "error", "message": str(e)}, status=400)
             
     return JsonResponse({"status": "error", "message": "No permitido"}, status=405)
-
-
 @csrf_exempt
 def login_view(request):
     if request.method == 'POST':
