@@ -1,14 +1,15 @@
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
 
 @dataclass
 class MovimientoInventarioCrearDTO:
-    id_producto: int
-    id_usuario: int
-    id_tipo_movimiento: int
-    cantidad: int
-    costo_unitario: Decimal
+    # el usuario ya no se manda desde el front, se toma del que inicio sesion
+    id_producto: Any
+    id_tipo_movimiento: Any
+    cantidad: Any
+    costo_unitario: Any = None
 
 
 @dataclass

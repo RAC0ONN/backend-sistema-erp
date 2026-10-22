@@ -1,17 +1,24 @@
+from django.db import transaction
+
+from sistema_erp import validaciones as v
+from sistema_erp.errores import ErrorValidacion
+from sistema_erp.sesion import exigir_rol, ADMINISTRADOR, AUXILIAR
 from inventario.repository import MovimientoInventarioRepository, ProductoRepository
 from inventario.entity import MovimientoInventario
 from inventario.dto import MovimientoInventarioRespuestaDTO
-from django.db import transaction
+from inventario.service.producto_service import STOCK_MAXIMO, PRECIO_MAXIMO, ROLES_VEN_INACTIVOS
+
+ROLES_REGISTRAN_MOVIMIENTOS = (ADMINISTRADOR, AUXILIAR)
 
 
 class MovimientoInventarioService:
 
     @staticmethod
-    def listar_movimientos():
-        movimientos = MovimientoInventarioRepository.obtener_todos()
+    def listar_movimientos(responsable):
+        solo_activos = responsable.rol.nombre not in ROLES_VEN_INACTIVOS
         resultado = []
-        for m in movimientos:
-            dto = MovimientoInventarioRespuestaDTO(
+        for m in MovimientoInventarioRepository.obtener_todos(solo_productos_activos=solo_activos):
+            resultado.append(MovimientoInventarioRespuestaDTO(
                 id_movimiento_inventario=m.id_movimiento_inventario,
                 id_producto=m.producto.id_producto,
                 nombre_producto=m.producto.nombre,
@@ -21,40 +28,55 @@ class MovimientoInventarioService:
                 nombre_tipo_movimiento=m.tipo_movimiento.nombre,
                 cantidad=m.cantidad,
                 costo_unitario=m.costo_unitario,
-                fecha=str(m.fecha)
-            )
-            resultado.append(dto)
+                fecha=m.fecha.isoformat() if m.fecha else ""
+            ))
         return resultado
 
     @staticmethod
     @transaction.atomic
-    def registrar_movimiento(dto_crear):
-        if dto_crear.cantidad <= 0:
-            raise ValueError("La cantidad del movimiento debe ser mayor a cero")
-        if dto_crear.costo_unitario < 0:
-            raise ValueError("El costo unitario no puede ser negativo")
+    def registrar_movimiento(dto_crear, responsable):
+        exigir_rol(responsable, *ROLES_REGISTRAN_MOVIMIENTOS)
 
-        producto = ProductoRepository.obtener_por_id(dto_crear.id_producto)
+        errores = {}
+        id_producto = v.entero(errores, "id_producto", dto_crear.id_producto, "El producto", minimo=1)
+        id_tipo = v.entero(errores, "id_tipo_movimiento", dto_crear.id_tipo_movimiento, "El tipo de movimiento", minimo=1)
+        cantidad = v.entero(errores, "cantidad", dto_crear.cantidad, "La cantidad", minimo=1, maximo=STOCK_MAXIMO)
+        if errores:
+            raise ErrorValidacion(errores)
+
+        tipo = MovimientoInventarioRepository.obtener_tipo(id_tipo)
+        if not tipo:
+            raise ErrorValidacion({"id_tipo_movimiento": "El tipo de movimiento no existe"})
+
+        producto = ProductoRepository.obtener_por_id(id_producto, bloquear=True)
         if not producto:
-            raise ValueError("El producto especificado no existe.")
+            raise ErrorValidacion({"id_producto": "El producto no existe"})
+        if producto.estado_producto.nombre.lower() != "activo":
+            raise ErrorValidacion({"id_producto": "No se pueden registrar movimientos de un producto inactivo"})
 
-        if dto_crear.id_tipo_movimiento == 2 and producto.stock_actual < dto_crear.cantidad:
-            raise ValueError(f"No hay existencias suficientes. Stock actual: {producto.stock_actual}")
+        # si no mandan costo se usa el precio del producto
+        costo = producto.precio_venta
+        if dto_crear.costo_unitario not in (None, ""):
+            costo = v.decimal(errores, "costo_unitario", dto_crear.costo_unitario, "El costo unitario", minimo=0, maximo=PRECIO_MAXIMO)
+            if errores:
+                raise ErrorValidacion(errores)
 
-        movimiento = MovimientoInventario(
-            producto_id=dto_crear.id_producto,
-            usuario_id=dto_crear.id_usuario,
-            tipo_movimiento_id=dto_crear.id_tipo_movimiento,
-            cantidad=dto_crear.cantidad,
-            costo_unitario=dto_crear.costo_unitario
-        )
-        movimiento_guardado = MovimientoInventarioRepository.guardar(movimiento)
+        es_entrada = tipo.nombre.lower() == "entrada"
+        if es_entrada:
+            if producto.stock_actual + cantidad > STOCK_MAXIMO:
+                raise ErrorValidacion({"cantidad": f"Con esta entrada el stock pasaría de {STOCK_MAXIMO:,}".replace(",", ".")})
+            producto.stock_actual += cantidad
+        else:
+            if cantidad > producto.stock_actual:
+                raise ErrorValidacion({"cantidad": f"No hay existencias suficientes. Stock actual: {producto.stock_actual}"})
+            producto.stock_actual -= cantidad
 
-        if dto_crear.id_tipo_movimiento == 1:  
-            producto.stock_actual += dto_crear.cantidad
-        elif dto_crear.id_tipo_movimiento == 2:  
-            producto.stock_actual -= dto_crear.cantidad
-
+        movimiento = MovimientoInventarioRepository.guardar(MovimientoInventario(
+            producto_id=producto.id_producto,
+            usuario_id=responsable.id_usuario,
+            tipo_movimiento_id=tipo.id_tipo_movimiento,
+            cantidad=cantidad,
+            costo_unitario=costo
+        ))
         ProductoRepository.guardar(producto)
-
-        return movimiento_guardado.id_movimiento_inventario
+        return movimiento.id_movimiento_inventario, producto.stock_actual

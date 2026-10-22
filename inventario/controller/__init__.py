@@ -3,6 +3,7 @@ from .producto_controller import (
     crear_producto_view,
     actualizar_producto_view,
     eliminar_producto_view,
+    listar_categorias_view,
 )
 from .movimiento_inventario_controller import (
     listar_movimientos_view,
@@ -14,6 +15,7 @@ __all__ = [
     "crear_producto_view",
     "actualizar_producto_view",
     "eliminar_producto_view",
+    "listar_categorias_view",
     "listar_movimientos_view",
     "crear_movimiento_view",
 ]

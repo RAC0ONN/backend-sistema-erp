@@ -1,18 +1,21 @@
 from django.urls import path
 from usuarios.controller import (
-    listar_usuarios_view, 
-    crear_usuario_view, 
-    actualizar_usuario_view, 
-    eliminar_usuario_view,
+    listar_usuarios_view,
+    mi_perfil_view,
+    crear_usuario_view,
+    actualizar_usuario_view,
+    cambiar_contrasenia_view,
     login_view,
     listar_bitacora_view
 )
 
+# ya no hay ruta para eliminar usuarios: un usuario se retira cambiando su estado, asi no se pierde su historial
 urlpatterns = [
     path('usuarios/', listar_usuarios_view, name='listar_usuarios'),
+    path('usuarios/perfil/', mi_perfil_view, name='mi_perfil'),
     path('usuarios/crear/', crear_usuario_view, name='crear_usuario'),
     path('usuarios/actualizar/<int:id_usuario>/', actualizar_usuario_view, name='actualizar_usuario'),
-    path('usuarios/eliminar/<int:id_usuario>/', eliminar_usuario_view, name='eliminar_usuario'),
+    path('usuarios/cambiar-contrasenia/', cambiar_contrasenia_view, name='cambiar_contrasenia'),
     path('usuarios/login/', login_view, name='login'),
     path('auditoria/', listar_bitacora_view, name='listar_bitacora'),
 ]
