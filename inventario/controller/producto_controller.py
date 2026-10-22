@@ -1,116 +1,79 @@
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
-from decimal import Decimal
 
+from sistema_erp.respuestas import vista_api, leer_json
+from sistema_erp.sesion import usuario_actual
 from inventario.service import ProductoService
 from inventario.dto import ProductoCrearDTO, ProductoActualizarDTO
 
 
-@csrf_exempt
+def a_json(p):
+    return {
+        "id_producto": p.id_producto,
+        "codigo_identificacion": p.codigo_identificacion,
+        "nombre": p.nombre,
+        "unidad_medida": p.unidad_medida,
+        "precio_venta": str(p.precio_venta),
+        "stock_actual": p.stock_actual,
+        "stock_minimo": p.stock_minimo,
+        "id_categoria": p.id_categoria,
+        "categoria": p.nombre_categoria,
+        "id_estado_producto": p.id_estado_producto,
+        "estado_producto": p.nombre_estado_producto
+    }
+
+
+@vista_api('GET')
 def listar_productos_view(request):
-    if request.method == 'GET':
-        try:
-            productos = ProductoService.listar_productos()
-            resultado = [
-                {
-                    "id_producto": p.id_producto,
-                    "codigo_identificacion": p.codigo_identificacion,
-                    "nombre": p.nombre,
-                    "unidad_medida": p.unidad_medida,
-                    "precio_venta": str(p.precio_venta),
-                    "stock_actual": p.stock_actual,
-                    "stock_minimo": p.stock_minimo,
-                    "id_categoria": p.id_categoria,
-                    "categoria": p.nombre_categoria,
-                    "id_estado_producto": p.id_estado_producto,
-                    "estado_producto": p.nombre_estado_producto
-                }
-                for p in productos
-            ]
-            return JsonResponse({"status": "success", "data": resultado}, safe=False)
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
-    
-    return JsonResponse({"status": "error", "message": "No permitido"}, status=405)
+    responsable = usuario_actual(request)
+    productos = ProductoService.listar_productos(responsable)
+    return JsonResponse({"status": "success", "data": [a_json(p) for p in productos]})
 
 
-@csrf_exempt
+@vista_api('GET')
+def listar_categorias_view(request):
+    usuario_actual(request)
+    return JsonResponse({"status": "success", "data": ProductoService.listar_categorias()})
+
+
+@vista_api('POST')
 def crear_producto_view(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            dto = ProductoCrearDTO(
-                codigo_identificacion=data.get('codigo_identificacion'),
-                nombre=data.get('nombre'),
-                unidad_medida=data.get('unidad_medida'),
-                precio_venta=Decimal(str(data.get('precio_venta', 0))),
-                stock_actual=int(data.get('stock_actual', 0)),
-                stock_minimo=int(data.get('stock_minimo', 0)),
-                id_categoria=int(data.get('id_categoria')),
-                id_estado_producto=int(data.get('id_estado_producto'))
-            )
-            nuevo_id = ProductoService.crear_producto(dto)
-            
-            return JsonResponse({
-                "status": "success", 
-                "message": "Exito", 
-                "id_producto": nuevo_id
-            }, status=201)
-            
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
-            
-    return JsonResponse({"status": "error", "message": "No permitido"}, status=405)
+    responsable = usuario_actual(request)
+    data = leer_json(request)
+    dto = ProductoCrearDTO(
+        nombre=data.get('nombre'),
+        unidad_medida=data.get('unidad_medida'),
+        precio_venta=data.get('precio_venta'),
+        stock_actual=data.get('stock_actual'),
+        stock_minimo=data.get('stock_minimo'),
+        id_categoria=data.get('id_categoria'),
+    )
+    producto = ProductoService.crear_producto(dto, responsable)
+    return JsonResponse({
+        "status": "success",
+        "message": f"Producto registrado con el código {producto.codigo_identificacion}",
+        "id_producto": producto.id_producto,
+        "codigo_identificacion": producto.codigo_identificacion
+    }, status=201)
 
 
-@csrf_exempt
+@vista_api('PUT')
 def actualizar_producto_view(request, id_producto):
-    if request.method == 'PUT':
-        try:
-            data = json.loads(request.body)
-            dto = ProductoActualizarDTO(
-                codigo_identificacion=data.get('codigo_identificacion'),
-                nombre=data.get('nombre'),
-                unidad_medida=data.get('unidad_medida'),
-                precio_venta=Decimal(str(data.get('precio_venta', 0))),
-                stock_actual=int(data.get('stock_actual', 0)),
-                stock_minimo=int(data.get('stock_minimo', 0)),
-                id_categoria=int(data.get('id_categoria')),
-                id_estado_producto=int(data.get('id_estado_producto'))
-            )
-            ProductoService.actualizar_producto(id_producto, dto)
-            
-            return JsonResponse({
-                "status": "success", 
-                "message": "Exito"
-            }, status=200)
-            
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
-            
-    return JsonResponse({"status": "error", "message": "No permitido"}, status=405)
+    responsable = usuario_actual(request)
+    data = leer_json(request)
+    dto = ProductoActualizarDTO(
+        nombre=data.get('nombre'),
+        unidad_medida=data.get('unidad_medida'),
+        precio_venta=data.get('precio_venta'),
+        stock_minimo=data.get('stock_minimo'),
+        id_categoria=data.get('id_categoria'),
+        id_estado_producto=data.get('id_estado_producto'),
+    )
+    ProductoService.actualizar_producto(id_producto, dto, responsable)
+    return JsonResponse({"status": "success", "message": "Producto actualizado"}, status=200)
 
 
-@csrf_exempt
+@vista_api('DELETE')
 def eliminar_producto_view(request, id_producto):
-    if request.method == 'DELETE':
-        try:
-            ProductoService.eliminar_producto(id_producto)
-            return JsonResponse({
-                "status": "success", 
-                "message": "Exito"
-            }, status=200)
-            
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            return JsonResponse({"status": "error", "message": str(e)}, status=400)
-            
-    return JsonResponse({"status": "error", "message": "No permitido"}, status=405)
+    responsable = usuario_actual(request)
+    ProductoService.eliminar_producto(id_producto, responsable)
+    return JsonResponse({"status": "success", "message": "Producto eliminado"}, status=200)
